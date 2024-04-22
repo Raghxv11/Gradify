@@ -1,3 +1,6 @@
 streamlit
 google-generativeai
 python-dotenv
+werkzeug
+flask
+PyPDF2
