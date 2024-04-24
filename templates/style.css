@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
 body {
     background-color: black;
     height: 100vh;
@@ -46,8 +48,9 @@ body {
   }
   
   h1 {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(2rem, 4vw, 4rem);
+    font-family: 'Outfit', sans-serif;
+    font-size: 48px;
+    font-weight: 500;
     color: white;
     white-space: nowrap;
     padding: 0rem clamp(1rem, 2vw, 3rem);
@@ -58,6 +61,13 @@ body {
     top: 20%;
     translate: -50% -50%;
     z-index: 3;
+    
+  }
+
+  h1 span {
+    background: -webkit-linear-gradient(16deg, #4b90ff, #ff5546);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   h4 {
