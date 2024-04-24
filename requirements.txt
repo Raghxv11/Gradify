@@ -4,3 +4,8 @@ python-dotenv
 werkzeug
 flask
 PyPDF2
+langchain
+chromadb
+faiss-cpu
+langchain_google_genai
+regex
