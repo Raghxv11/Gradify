@@ -16,27 +16,21 @@ chat = model.start_chat(history=[])
 def get_gemini_response(question, student_solution):
     prompt = f"""
     The student provided solution: {student_solution}.  
-    Your task is to determine if the student's solution \
-    is correct or not.
+    Your task is to determine if the student's solution is correct or not.
     To solve the problem do the following:
     - First, work out your own solution to the problem. 
-    - Then compare your solution to the student's solution \
-    and evaluate if the student's solution is correct or not. 
-    Don't decide if the student's solution is correct until 
-    you have done the problem yourself. 
+    - Then compare your solution to the student's solution and evaluate if the student's solution is correct or not. 
+    Don't decide if the student's solution is correct until you have done the problem yourself. 
     Use the following format: 
-    Question:
+    Question: Question here
     \n
-    Student's solution:
+    Student's solution: Student's solution here
     \n
-    Actual solution:
-    steps to work out the solution and your solution here
+    Actual solution: steps to work out the solution and your solution here
     \n
-    Is the student's solution the same as actual solution just calculated:
-    yes or no
+    Is the student's solution the same as actual solution just calculated: Yes or No
     \n
-    Student grade:
-    correct or incorrect
+    Student grade: correct or incorrect
 """
     question = question + "\n" + prompt
     response = chat.send_message(question, stream=True)
@@ -54,7 +48,6 @@ submit = st.button("Submit")
 if submit and input:
     response = get_gemini_response(input, student_solution)
     st.subheader("The response is")
-    correct = False
     for chunk in response:
         text = chunk.text
         st.write(text)

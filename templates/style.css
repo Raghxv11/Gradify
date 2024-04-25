@@ -231,30 +231,46 @@ button {
     fill: #3c3c3c;
     stroke: white;
   }
+  
+  /* Sidebar styles */
+.sidebar {
+  position: fixed; /* Fixed Sidebar (stay in place on scroll) */
+  left: 0;
+  top: 0;
+  width: 200px; /* Set the width of the sidebar */
+  height: 100vh; /* Full-height: remove this if you want "auto" height */
+  background-color: #282828; /* Sidebar background color */
+  padding: 20px; /* Sidebar padding */
+  box-sizing: border-box; /* So padding does not affect width */
+  z-index: 1000; /* Make sure it sits on top of other content */
+}
 
-  
-  
-  /* #sendButton {
-    width: fit-content;
-    height: 100%;
-    background-color: transparent;
-    outline: none;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s;
-  }
-  #sendButton svg {
-    height: 18px;
-    transition: all 0.3s;
-  }
-  #sendButton svg path {
-    transition: all 0.3s;
-  }
-  #sendButton:hover svg path {
-    fill: #3c3c3c;
-    stroke: white;
-  } */
-  
+/* Enhanced styles for dropdown */
+.sidebar select {
+  width: 100%; /* Full width of the sidebar */
+  padding: 15px; /* Increased padding for larger touch area */
+  margin-top: 20px; /* Space above the dropdown */
+  background-color: #555; /* Slightly darker background color */
+  color: #fff; /* White text color */
+  border: none; /* No border for a cleaner look */
+  border-radius: 5px; /* Rounded corners */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
+  font-size: 18px; /* Larger font size for readability */
+  cursor: pointer; /* Hand cursor on hover */
+  transition: all 0.3s ease; /* Smooth transition for interactions */
+}
+
+/* Hover and focus styles for dropdown */
+.sidebar select:hover,
+.sidebar select:focus {
+  background-color: #666; /* Darker on hover/focus for feedback */
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); /* Deeper shadow on hover/focus */
+}
+
+/* Style the dropdown options for consistency */
+.sidebar option {
+  background-color: #666; /* Darker background for options */
+  color: white; /* White text color */
+  padding: 10px; /* Padding for options */
+}
+
