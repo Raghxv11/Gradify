@@ -37,17 +37,20 @@ def get_gemini_response(question, student_solution):
     return response
 
 
-st.set_page_config(page_title="Automate Grading with Gemini")
 
-st.header("Automate Grading with Gemini")
+def main():
+    st.header("Automate Grading with Gemini")
 
-input = st.text_input("Ask a Question: ")
-student_solution = st.text_input("Student Solution: ")
-submit = st.button("Submit")
+    input_question = st.text_input("Ask a Question: ")
+    student_solution = st.text_input("Student Solution: ")
+    submit = st.button("Submit")
 
-if submit and input:
-    response = get_gemini_response(input, student_solution)
-    st.subheader("The response is")
-    for chunk in response:
-        text = chunk.text
-        st.write(text)
+    if submit and input_question:
+        response = get_gemini_response(input_question, student_solution)
+        st.subheader("The response is")
+        for chunk in response:
+            text = chunk.text
+            st.write(text)
+
+if __name__ == "__main__":
+    main()
