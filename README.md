@@ -6,7 +6,7 @@
 Clone the repository
 
 ```bash
-Project repo: https://github.com/
+Project repo: https://github.com/](https://github.com/Raghxv11/Google-Hackathon.git
 ```
 
 ### STEP 01- Create a conda environment after opening the repository
