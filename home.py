@@ -8,21 +8,21 @@ def main():
 
     # Option for user to select the input method
     option = st.sidebar.selectbox("Choose the method to submit your question and solution:",
-                                  ['Upload Image', 'Upload PDF', 'Type Manually'])
+                                  ['Upload PDF', 'Upload Image', 'Type Manually'])
 
     # Load the corresponding app based on user selection
     if option == 'Upload PDF':
         # Import and run the app that handles image uploads
-        import app
-        app.main()
+        import docs
+        docs.main()
     elif option == 'Type Manually':
         # Import and run the app that handles PDF uploads
-        import app2
-        app2.main()
+        import text
+        text.main()
     elif option == 'Upload Image':
         # Import and run the app that handles typing input
-        import app4
-        app4.main()
+        import image
+        image.main()
 
 # Run the main function
 if __name__ == "__main__":
