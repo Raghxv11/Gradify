@@ -33,7 +33,7 @@ GOOGLE_API_KEY = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 ```bash
 # run the following command
-streamlit run home.py
+streamlit run app.py
 ```
 
 Now,
