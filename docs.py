@@ -10,10 +10,16 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
+from langchain.docstore.document import Document
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+
+def convert_text_to_documents(text_chunks):
+    # Convert each chunk of text to a Document object
+    return [Document(page_content=chunk) for chunk in text_chunks]
 
 
 def get_pdf_text(pdf_docs):
@@ -41,9 +47,24 @@ def get_vector_store(text_chunks):
     vector_store.save_local("faiss_index")
 
 
+def get_rubric_chain():
+    prompt_template = f"""
+    Extract the given total points, criteria, and points/pts from the given rubric:\n {{context}}?\n
+
+    Answer:
+    """
+    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+    prompt = PromptTemplate(
+        template=prompt_template, input_variables=["context"]
+    )
+    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
+    return chain
+
+
 def get_conversational_chain(rubric=None):
+    print(rubric)
     if rubric:
-        rubric_text = f" according to the provided rubric:\n{rubric}\n"
+        rubric_text = f" according to the provided rubric:\n{{rubric}}. Strictly based on the grading criteria, total points, and the points for each criteria given in the provided rubric do the grading\n"
     else:
         rubric_text = " based on the general grading criteria.\n"
     
@@ -60,7 +81,7 @@ def get_conversational_chain(rubric=None):
     """
     model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
     prompt = PromptTemplate(
-        template=prompt_template, input_variables=["context", "question"]
+        template=prompt_template, input_variables=["rubric", "context", "question"]
     )
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
@@ -78,7 +99,7 @@ def user_input(user_question):
         {"input_documents": docs, "question": user_question}, return_only_outputs=True
     )
 
-    print(response)
+    # print(response)
     st.write("Reply: ", response["output_text"])
 
 
@@ -86,9 +107,6 @@ def main():
     st.header("Automate grading using Gemini💁")
 
     user_question = st.text_input("Ask a Question from the PDF Files")
-
-    if user_question:
-        user_input(user_question)
 
     with st.sidebar:
         st.title("Menu:")
@@ -110,13 +128,26 @@ def main():
                     text_chunks = get_text_chunks(value)
                     get_vector_store(text_chunks)
                     rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
+
+                    if rubric_text:
+                        for key in rubric_text:
+                            rubric_str = rubric_text[key]
+
+                        rubric_chain = get_rubric_chain()
+
+                        response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
+                        rubric_text = response["output_text"]
+                        print(rubric_text)
+
                     chain = get_conversational_chain(rubric=rubric_text)
                     if user_question:
-                        response = chain({"input_documents": text_chunks, "question": user_question}, return_only_outputs=True)
+                        response = chain({"input_documents": text_chunks, "rubric": rubric_text, "question": user_question}, return_only_outputs=True)
                         st.write(f"Reply for {key}: ", response["output_text"])
 
                 st.success("Done")
-
+    
+    if user_question:
+        user_input(user_question)
 
 if __name__ == "__main__":
     main()
