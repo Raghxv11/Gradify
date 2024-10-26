@@ -62,7 +62,6 @@ def get_rubric_chain():
 
 
 def get_conversational_chain(rubric=None):
-    print(rubric)
     if rubric:
         rubric_text = f" according to the provided rubric:\n{{rubric}}. Strictly based on the grading criteria, total points, and the points for each criteria given in the provided rubric do the grading\n"
     else:
@@ -77,7 +76,7 @@ def get_conversational_chain(rubric=None):
         Context:\n {{context}}?\n
         Question: \n{{question}}\n
 
-    Answer:
+    Answer: Get the answer in beautiful format
     """
     model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
     prompt = PromptTemplate(
@@ -125,6 +124,7 @@ def main():
                 st.success("Done")
     
     if user_question:
+        print(pdf_docs)
         raw_text = get_pdf_text(pdf_docs)
 
         for key, value in raw_text.items():
@@ -133,24 +133,23 @@ def main():
             rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
 
             if rubric_text:
-                for key in rubric_text:
-                    rubric_str = rubric_text[key]
+                for rubric_key in rubric_text:
+                    rubric_str = rubric_text[rubric_key]
 
                 rubric_chain = get_rubric_chain()
 
                 response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
                 rubric_text = response["output_text"]
-                print(rubric_text)
 
             chain = get_conversational_chain(rubric=rubric_text)
-            print("User question: ", user_question)
             
             # Convert text chunks to Document objects
             documents = convert_text_to_documents(text_chunks)
             
             if user_question:
                 response = chain({"input_documents": documents, "rubric": rubric_text, "question": user_question}, return_only_outputs=True)
-                st.write(f"Reply for {key}: ", response["output_text"])
+                st.write(f"Reply for {key}:")
+                st.write(response["output_text"])
 
 
 if __name__ == "__main__":
