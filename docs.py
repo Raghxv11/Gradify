@@ -122,32 +122,36 @@ def main():
         
         if st.button("Submit & Process"):
             with st.spinner("Processing..."):
-                raw_text = get_pdf_text(pdf_docs)
-
-                for key, value in raw_text.items():
-                    text_chunks = get_text_chunks(value)
-                    get_vector_store(text_chunks)
-                    rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
-
-                    if rubric_text:
-                        for key in rubric_text:
-                            rubric_str = rubric_text[key]
-
-                        rubric_chain = get_rubric_chain()
-
-                        response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
-                        rubric_text = response["output_text"]
-                        print(rubric_text)
-
-                    chain = get_conversational_chain(rubric=rubric_text)
-                    if user_question:
-                        response = chain({"input_documents": text_chunks, "rubric": rubric_text, "question": user_question}, return_only_outputs=True)
-                        st.write(f"Reply for {key}: ", response["output_text"])
-
                 st.success("Done")
     
     if user_question:
-        user_input(user_question)
+        raw_text = get_pdf_text(pdf_docs)
+
+        for key, value in raw_text.items():
+            text_chunks = get_text_chunks(value)
+            get_vector_store(text_chunks)
+            rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
+
+            if rubric_text:
+                for key in rubric_text:
+                    rubric_str = rubric_text[key]
+
+                rubric_chain = get_rubric_chain()
+
+                response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
+                rubric_text = response["output_text"]
+                print(rubric_text)
+
+            chain = get_conversational_chain(rubric=rubric_text)
+            print("User question: ", user_question)
+            
+            # Convert text chunks to Document objects
+            documents = convert_text_to_documents(text_chunks)
+            
+            if user_question:
+                response = chain({"input_documents": documents, "rubric": rubric_text, "question": user_question}, return_only_outputs=True)
+                st.write(f"Reply for {key}: ", response["output_text"])
+
 
 if __name__ == "__main__":
     main()
