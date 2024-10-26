@@ -18,11 +18,15 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def get_pdf_text(pdf_docs):
     text = ""
+    tasks = {}
+
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
             text += page.extract_text()
-    return text
+        tasks[pdf.name] = text
+        
+    return tasks
 
 
 def get_text_chunks(text):
@@ -101,13 +105,16 @@ def main():
         if st.button("Submit & Process"):
             with st.spinner("Processing..."):
                 raw_text = get_pdf_text(pdf_docs)
-                text_chunks = get_text_chunks(raw_text)
-                get_vector_store(text_chunks)
-                rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
-                chain = get_conversational_chain(rubric=rubric_text)
-                if user_question:
-                    response = chain({"input_documents": text_chunks, "question": user_question}, return_only_outputs=True)
-                    st.write("Reply: ", response["output_text"])
+
+                for key, value in raw_text.items():
+                    text_chunks = get_text_chunks(value)
+                    get_vector_store(text_chunks)
+                    rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
+                    chain = get_conversational_chain(rubric=rubric_text)
+                    if user_question:
+                        response = chain({"input_documents": text_chunks, "question": user_question}, return_only_outputs=True)
+                        st.write(f"Reply for {key}: ", response["output_text"])
+
                 st.success("Done")
 
 
