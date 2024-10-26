@@ -8,6 +8,7 @@ __pycache__/
 
 #faiss
 faiss.index
+faiss_index/
 
 # Distribution / packaging
 .Python
