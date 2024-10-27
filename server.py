@@ -27,6 +27,27 @@ visualization_data = []
 percentage_grade = None
 letter_grade = None
 
+
+def get_gemini_response(image, prompt):
+    model = genai.GenerativeModel("gemini-1.5-flash")  # Updated model
+    response = model.generate_content([prompt, image[0]])
+    return response.text
+
+
+def input_image_setup(uploaded_file):
+    if uploaded_file is not None:
+        bytes_data = uploaded_file.getvalue()
+        image_parts = [
+            {
+                "mime_type": uploaded_file.type,
+                "data": bytes_data,
+            }
+        ]
+        return image_parts
+    else:
+        return None
+    
+
 def convert_text_to_documents(text_chunks):
     # Convert each chunk of text to a Document object
     return [Document(page_content=chunk) for chunk in text_chunks]
@@ -209,6 +230,92 @@ def visualization_pdf():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
+
+@app.route('/api/grade/image', methods=['POST', 'OPTIONS'])
+def grade_image():
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'No Image file uploaded'}), 400
+        
+        answer_files = request.files.getlist('image')
+        question_file = request.files.get('rubric')
+        
+        if not question_file:
+            return jsonify({'error': 'No question provided'}), 400
+
+        temp_images = []
+        pdf_names = []
+
+        for image in answer_files:
+            # Save the uploaded file temporarily
+            with tempfile.NamedTemporaryFile(delete=False) as temp_image:
+                image.save(temp_image.name)
+                temp_images.append(temp_image.name)
+                pdf_names.append(image.filename)
+                temp_image.close()
+        
+        # Save the uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False) as temp_question:
+            question_file.save(temp_question.name)
+            temp_question.close()
+            
+        input_prompt = """
+        Your task is to determine if the student's solution \
+        is correct or not.
+        To solve the problem do the following:
+        - First, work out your own solution to the problem. 
+        - Then compare your solution to the student's solution \ 
+        and evaluate if the student's solution is correct or not. 
+        Don't decide if the student's solution is correct until 
+        you have done the problem yourself.
+        Use the following format:
+        Question:
+
+        question here
+
+        \n
+        Student's solution:
+
+        student's solution here
+
+        \n
+        Actual solution:
+
+        steps to work out the solution and your solution here
+
+        \n
+        Is the student's solution the same as actual solution \
+        just calculated:
+
+        yes or no
+
+        \n
+        Student grade:
+        ```
+        correct or incorrect
+        """
+        ## If submit button is clicked
+
+        solution_data = input_image_setup([temp_images]) if temp_images else None
+        full_prompt = input_prompt.format(
+            question_here="The question will be read from uploaded image.",
+            student_solution_here="The solution will be read from uploaded image.",
+            actual_solution_here="The actual solution will be calculated here."
+        )
+        response = get_gemini_response(solution_data, full_prompt)
+            
+        # Clean up temporary file
+        for temp in temp_images:
+            os.unlink(temp)
+        os.unlink(temp_question.name)
+        
+        return jsonify({
+            'status': 'success',
+            'response': response
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
