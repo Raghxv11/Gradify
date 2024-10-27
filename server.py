@@ -1,3 +1,4 @@
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -21,6 +22,11 @@ load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=API_KEY)
 
+# Initialize variables
+visualization_data = []
+percentage_grade = None
+letter_grade = None
+
 def convert_text_to_documents(text_chunks):
     # Convert each chunk of text to a Document object
     return [Document(page_content=chunk) for chunk in text_chunks]
@@ -34,7 +40,7 @@ def get_pdf_text(pdf_docs):
         pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
             text += page.extract_text()
-        tasks[pdf.name] = text
+        tasks[pdf] = text
         
     return tasks
 
@@ -89,6 +95,37 @@ def get_conversational_chain(rubric=None):
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
 
+
+def extract_criteria_and_values(output_text):
+    lines = output_text.split('\n')
+
+    current_criteria = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith("**") and "Total Percentage Grade" not in line and "Letter Grade" not in line and "Feedback" not in line:
+            current_criteria = line.split("**")[1].split(" ")[0]
+            print(line)
+            scored = line.split("/")[0].split(" ")[-1]
+            total = line.split("/")[1].split(" ")[0]
+            print(current_criteria, scored, total)
+            visualization_data.append({
+                "criteria": current_criteria,
+                "scored": scored,
+                "total": total
+                })
+
+def create_visualizations(output_text):
+    # Split the text into lines
+    lines = output_text.split('\n')
+
+    # Iterate through each line to find the grades
+    for line in lines:
+        if "Total Percentage Grade" in line:
+            percentage_grade = float(line.split(':')[1].strip().replace('%', '').replace('*', '').strip())
+        elif "Letter Grade" in line:
+            letter_grade = line.split(':')[1].strip().replace('*', '').strip()
+
+
 #hello world
 @app.route('/hello', methods=['GET'])
 def hello():
@@ -100,21 +137,35 @@ def grade_pdf():
         if 'pdf' not in request.files:
             return jsonify({'error': 'No PDF file uploaded'}), 400
         
-        pdf_file = request.files['pdf']
-        rubric_file = request.files['rubric']
+        pdf_file = request.files.getlist('pdf')
+        rubric_file = request.files.get('rubric')
         question = request.form.get('question')
         
         if not question:
             return jsonify({'error': 'No question provided'}), 400
 
+        temp_pdfs = []
+        pdf_names = []
+
+        for pdf in pdf_file:
+            # Save the uploaded file temporarily
+            with tempfile.NamedTemporaryFile(delete=False) as temp_pdf:
+                pdf.save(temp_pdf.name)
+                temp_pdfs.append(temp_pdf.name)
+                pdf_names.append(pdf.filename)
+                temp_pdf.close()
+        
         # Save the uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False) as temp_pdf:
-            pdf_file.save(temp_pdf.name)
-            temp_pdf.close()
+        with tempfile.NamedTemporaryFile(delete=False) as temp_rubric:
+            rubric_file.save(temp_rubric.name)
+            temp_rubric.close()
             
-            # Process the PDF
-            raw_text = get_pdf_text(temp_pdf.name)
-            text_chunks = get_text_chunks(raw_text)
+        # Process the PDF
+        raw_text = get_pdf_text(temp_pdfs)
+        responses = ""
+
+        for key, value in raw_text.items():
+            text_chunks = get_text_chunks(value)
             get_vector_store(text_chunks)
             rubric_text = get_pdf_text([temp_rubric.name]) if temp_rubric.name else None
 
@@ -126,17 +177,22 @@ def grade_pdf():
 
                 response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
                 rubric_text = response["output_text"]
-
+            
             chain = get_conversational_chain(rubric=rubric_text)
             
             # Convert text chunks to Document objects
             documents = convert_text_to_documents(text_chunks)
             
             response = chain({"input_documents": documents, "rubric": rubric_text, "question": question}, return_only_outputs=True)
-            responses += response['output_text']
+            responses += f"\nResponse for {pdf_names[temp_pdfs.index(key)]}: \n\n" + response['output_text']
+            
+            create_visualizations(response["output_text"])
+            extract_criteria_and_values(response["output_text"])
         
         # Clean up temporary file
-        os.unlink(temp_pdf.name)
+        for temp in temp_pdfs:
+            os.unlink(temp)
+        os.unlink(temp_rubric.name)
         
         return jsonify({
             'status': 'success',
@@ -145,6 +201,14 @@ def grade_pdf():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/api/visualization', methods=['POST', 'OPTIONS'])
+def visualization_pdf():
+    try:       
+        return json.dumps({"criteria": visualization_data, "percentage_grade": percentage_grade, "letter_grade": letter_grade})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
