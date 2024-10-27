@@ -11,3 +11,5 @@ faiss-cpu
 langchain_google_genai
 regex
 langchain-community
+textrazor
+copyleaks
