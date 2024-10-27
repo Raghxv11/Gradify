@@ -21,11 +21,91 @@ CORS(app)
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=API_KEY)
+#Load the Copyleaks API key
+copyleaks_api_key = os.getenv("COPYLEAKS_API_KEY")
 
 # Initialize variables
+content_check_result = {}
 visualization_data = []
 percentage_grade = None
 letter_grade = None
+
+
+import http.client
+import json
+import uuid
+
+#Implementing the Copyleaks API
+def create_scan_id(student_id):
+    # Generate a submission_id with a shortened UUID
+    uuid_part = str(uuid.uuid4()).replace('-', '')[:8]
+    submission_id = f"submission{uuid_part}"
+    
+    # Combine the components
+    scan_id = f"{student_id}-{submission_id}"
+    
+    # Ensure the scan_id meets the length requirement (3-36 characters)
+    if len(scan_id) > 36:
+        scan_id = scan_id[:36]
+    
+    return scan_id
+
+def check_content_origin(text):
+    conn = http.client.HTTPSConnection("api.copyleaks.com")
+
+    login_token = os.getenv("COPIYLEAKS_LOGIN_TOKEN")
+    
+    headers = {
+        'Authorization': f"Bearer {login_token}",
+        'Content-Type': "application/json",
+        'Accept': "application/json"
+    }
+    
+    payload = json.dumps({
+        "text": text,
+        "language": "en",
+        "sandbox": False
+    })
+
+    try:
+        scan_id = create_scan_id("studentid123")
+        conn.request("POST", f"/v2/writer-detector/{scan_id}/check", body=payload, headers=headers)
+        res = conn.getresponse()
+        data = res.read().decode("utf-8")
+        
+        try:
+            result = json.loads(data)
+        except json.JSONDecodeError:
+            return f"Error: Invalid JSON response from API. Raw response: {data}"
+        
+        summary = result.get('summary', {})
+        ai_score = summary.get('ai', 0)
+        human_score = summary.get('human', 0)
+        probability = summary.get('probability', 0.0)
+        
+        total_words = result.get('scannedDocument', {}).get('totalWords', 0)
+        
+        if ai_score > human_score:
+            classification = "AI-generated content"
+        elif human_score > ai_score:
+            classification = "Human-generated content"
+        else:
+            classification = "Undetermined"
+
+        
+        return {
+            "classification": classification,
+            "ai_score": ai_score,
+            "human_score": human_score,
+            "total_words": total_words,
+            "model_version": result.get('modelVersion', 'Unknown'),
+        }
+    
+    except Exception as e:
+        return f"Error: {str(e)}"
+    finally:
+        conn.close()
+
 
 
 def get_gemini_response(image, prompt):
@@ -186,6 +266,9 @@ def grade_pdf():
         responses = ""
 
         for key, value in raw_text.items():
+
+            content_check_result = check_content_origin(value)
+
             text_chunks = get_text_chunks(value)
             get_vector_store(text_chunks)
             rubric_text = get_pdf_text([temp_rubric.name]) if temp_rubric.name else None
@@ -229,7 +312,15 @@ def visualization_pdf():
         return json.dumps({"criteria": visualization_data, "percentage_grade": percentage_grade, "letter_grade": letter_grade})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
+
+
+@app.route('/api/plagirism', methods=['POST', 'OPTIONS'])
+def visualization_pdf():
+    global content_check_result
+    try:       
+        return json.dumps({"Classification": content_check_result['classification'], "AI Score": content_check_result['ai_score'], "Human Score": content_check_result['human_score']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/grade/image', methods=['POST', 'OPTIONS'])
 def grade_image():

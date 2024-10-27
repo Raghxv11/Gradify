@@ -12,7 +12,7 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
-api_key = "ce2cd42a-c218-4f45-beef-8f1593be3e33"
+copyleaks_api_key = os.getenv("COPYLEAKS_API_KEY")
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
@@ -24,9 +24,6 @@ import json
 
 import uuid
 import time
-
-import http.client
-import json
 
 
 def create_scan_id(student_id):
@@ -43,10 +40,10 @@ def create_scan_id(student_id):
     
     return scan_id
 
-def check_content_origin(api_key, text):
+def check_content_origin(copyleaks_api_key, text):
     conn = http.client.HTTPSConnection("api.copyleaks.com")
 
-    login_token = "DB7D6C0E80A05460D7A898D8283636BF574AE036677D362F66123081A9D3105F"
+    login_token = os.getenv("COPYLEAKS_LOGIN_TOKEN")
     
     headers = {
         'Authorization': f"Bearer {login_token}",
@@ -244,7 +241,7 @@ def main():
 
         for key, value in raw_text.items():
 
-            content_check_result = check_content_origin(api_key, value)
+            content_check_result = check_content_origin(copyleaks_api_key, value)
             st.write("Content Origin Check:")
         
             if isinstance(content_check_result, dict):
