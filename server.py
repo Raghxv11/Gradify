@@ -73,14 +73,19 @@ def get_conversational_chain(rubric=None):
     
     prompt_template = f"""
     You are a trained expert on writing and literary analysis. Your job is to accurately and effectively grade a student's essay{rubric_text}
-    Respond back with graded points and a level for each criteria. Don't rewrite the rubric in order to save processing power. In the end, write short feedback about what steps they might take to improve on their assignment. Write a total percentage grade and letter grade. In your overall response, try to be lenient and keep in mind that the student is still learning. While grading the essay remember the writing level the student is at while considering their course level, grade level, and the overall expectations of writing should be producing.
+    Respond back with graded points and a level for each criteria. Don't rewrite the rubric. For each criteria, provide a brief comment (1-2 lines) explaining the score.
+    In the end, write short feedback about what steps they might take to improve on their assignment. Write a total percentage grade and letter grade. In your overall response, try to be lenient and keep in mind that the student is still learning. While grading the essay remember the writing level the student is at while considering their course level, grade level, and the overall expectations of writing should be producing.
     Your grade should only be below 70 percent if the essay does not succeed at all in any of the criteria. Your grade should only be below 80 percent if the essay is not sufficient in most of the criteria. Your grade should only be below 90% if there are a few criteria where the essay doesn't excell. Your grade should only be above 90 percent if the essay succeeds in most of the criteria.
     Understand that the essay was written by a human and think about their writing expectations for their grade level/course level, be lenient and give the student the benefit of the doubt.
+
+    Format each criteria exactly like this:
+    • Criteria_name: score/total
+      Brief comment explaining the score (1-2 lines maximum)
 
         Context:\n {{context}}?\n
         Question: \n{{question}}\n
 
-    Answer: Get the answer in beautiful format, for the criteria present in rubric list them as Criteria_name student_score/total_score
+    Answer: Get the answer in beautiful format, for the criteria present in rubric list them as specified above.
     """
     model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
     prompt = PromptTemplate(
@@ -91,21 +96,28 @@ def get_conversational_chain(rubric=None):
 
 def extract_criteria_and_values(output_text):
     lines = output_text.split('\n')
+    visualization_data.clear()  # Clear previous data
 
-    current_criteria = None
     for line in lines:
         line = line.strip()
-        if line.startswith("**") and "Total Percentage Grade" not in line and "Letter Grade" not in line and "Feedback" not in line:
-            current_criteria = line.split("**")[1].split(" ")[0]
-            print(line)
-            scored = line.split("/")[0].split(" ")[-1]
-            total = line.split("/")[1].split(" ")[0]
-            print(current_criteria, scored, total)
+        # Skip empty lines and lines with total/letter grade/feedback
+        if not line or "Total Percentage Grade" in line or "Letter Grade" in line or "Feedback" in line:
+            continue
+            
+        # Check if line starts with bullet point and contains a score
+        if line.startswith('•') and '/' in line:
+            # Extract criteria name (everything before the colon)
+            criteria = line.split(':')[0].replace('•', '').strip()
+            # Extract score (between colon and dash)
+            score_part = line.split(':')[1].split('-')[0].strip()
+            scored = score_part.split('/')[0].strip()
+            total = score_part.split('/')[1].strip()
+            
             visualization_data.append({
-                "criteria": current_criteria,
+                "criteria": criteria,
                 "scored": scored,
                 "total": total
-                })
+            })
 
 def create_visualizations(output_text):
     global percentage_grade, letter_grade
