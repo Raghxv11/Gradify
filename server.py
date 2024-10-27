@@ -110,19 +110,11 @@ def grade_pdf():
         # Save the uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False) as temp_pdf:
             pdf_file.save(temp_pdf.name)
-            temp_pdf.close()  # Ensure the file is closed
-
-        # Save the uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False) as temp_rubric:
-            pdf_file.save(temp_rubric.name)
-            temp_rubric.close()  # Ensure the file is closed
-
-        # Process the PDF
-        raw_text = get_pdf_text(temp_pdf.name)
-        responses = ""
-
-        for key, value in raw_text.items():
-            text_chunks = get_text_chunks(value)
+            temp_pdf.close()
+            
+            # Process the PDF
+            raw_text = get_pdf_text(temp_pdf.name)
+            text_chunks = get_text_chunks(raw_text)
             get_vector_store(text_chunks)
             rubric_text = get_pdf_text([temp_rubric.name]) if temp_rubric.name else None
 

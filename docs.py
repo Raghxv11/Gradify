@@ -101,6 +101,60 @@ def user_input(user_question):
     # print(response)
     st.write("Reply: ", response["output_text"])
 
+# def extract_criteria_and_values(rubric_text):
+#         criteria_values = []
+#         lines = rubric_text.split('\n')
+#         print(lines)
+#         i = 0
+
+#         current_criteria = None
+#         while i < len(lines):
+#             line = lines[i].strip()
+
+#             if line.startswith("**") and line.endswith("**"):
+#                 print(line)
+#                 while(line.startswith("*") and len(line) == 0):
+#                     if(len(line) > 0):
+#                         criteria_values.append(line)
+#                     i += 1
+#                 break
+
+#         return criteria_values
+
+def extract_criteria_and_values(output_text):
+    criteria_values = []
+    lines = output_text.split('\n')
+
+    current_criteria = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith("**") and "Total Percentage Grade" not in line and "Letter Grade" not in line and "Feedback" not in line:
+            current_criteria = line.split("**")[1].split(" ")[0]
+            print(line)
+            scored = line.split("/")[0].split(" ")[-1]
+            total = line.split("/")[1].split(" ")[0]
+            print(current_criteria, scored, total)
+            criteria_values.append((current_criteria, scored, total))
+
+    return criteria_values
+
+def create_visualizations(output_text):
+    # Initialize variables
+    percentage_grade = None
+    letter_grade = None
+
+    # Split the text into lines
+    lines = output_text.split('\n')
+
+    # Iterate through each line to find the grades
+    for line in lines:
+        if "Total Percentage Grade" in line:
+            percentage_grade = float(line.split(':')[1].strip().replace('%', '').replace('*', '').strip())
+        elif "Letter Grade" in line:
+            letter_grade = line.split(':')[1].strip().replace('*', '').strip()
+    
+    print("percentage_grade: ", percentage_grade)
+    print("letter_grade: ", letter_grade)
 
 def main():
     st.header("Automate grading using Gemini💁")
@@ -124,7 +178,6 @@ def main():
                 st.success("Done")
     
     if user_question:
-        print(pdf_docs)
         raw_text = get_pdf_text(pdf_docs)
 
         for key, value in raw_text.items():
@@ -140,7 +193,7 @@ def main():
 
                 response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
                 rubric_text = response["output_text"]
-
+            #print(rubric_text)
             chain = get_conversational_chain(rubric=rubric_text)
             
             # Convert text chunks to Document objects
@@ -150,6 +203,9 @@ def main():
                 response = chain({"input_documents": documents, "rubric": rubric_text, "question": user_question}, return_only_outputs=True)
                 st.write(f"Reply for {key}:")
                 st.write(response["output_text"])
+                print(response["output_text"])
+                create_visualizations(response["output_text"])
+                print(extract_criteria_and_values(response["output_text"]))
 
 
 if __name__ == "__main__":
