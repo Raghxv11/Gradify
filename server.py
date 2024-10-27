@@ -188,9 +188,19 @@ def grade_pdf():
 
 @app.route('/api/visualization', methods=['POST', 'OPTIONS'])
 def visualization_pdf():
-    try:       
-        return json.dumps({"criteria": visualization_data, "percentage_grade": percentage_grade, "letter_grade": letter_grade})
+    try:
+        global visualization_data, percentage_grade, letter_grade
+        
+        if not visualization_data:
+            return jsonify({'error': 'No visualization data available'}), 400
+        
+        return jsonify({
+            "criteria": visualization_data,
+            "percentage_grade": percentage_grade,
+            "letter_grade": letter_grade
+        })
     except Exception as e:
+        print(f"Error in visualization_pdf: {str(e)}")  # Log the error
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
