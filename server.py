@@ -86,7 +86,7 @@ def get_conversational_chain(rubric=None):
         Context:\n {{context}}?\n
         Question: \n{{question}}\n
 
-    Answer: Get the answer in beautiful format
+    Answer: Get the answer in beautiful format, for the criteria present in rubric list them as Criteria_name student_score/total_score
     """
     model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
     prompt = PromptTemplate(
