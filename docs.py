@@ -12,13 +12,93 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
 
+copyleaks_api_key = os.getenv("COPYLEAKS_API_KEY")
+
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+## Implementation of the Copyleaks API
+import http.client
+import json
+
+import uuid
+import time
+
+
+def create_scan_id(student_id):
+    # Generate a submission_id with a shortened UUID
+    uuid_part = str(uuid.uuid4()).replace('-', '')[:8]
+    submission_id = f"submission{uuid_part}"
+    
+    # Combine the components
+    scan_id = f"{student_id}-{submission_id}"
+    
+    # Ensure the scan_id meets the length requirement (3-36 characters)
+    if len(scan_id) > 36:
+        scan_id = scan_id[:36]
+    
+    return scan_id
+
+def check_content_origin(copyleaks_api_key, text):
+    conn = http.client.HTTPSConnection("api.copyleaks.com")
+
+    login_token = os.getenv("COPYLEAKS_LOGIN_TOKEN")
+    
+    headers = {
+        'Authorization': f"Bearer {login_token}",
+        'Content-Type': "application/json",
+        'Accept': "application/json"
+    }
+    
+    payload = json.dumps({
+        "text": text,
+        "language": "en",
+        "sandbox": False
+    })
+
+    try:
+        scan_id = create_scan_id("studentid123")
+        conn.request("POST", f"/v2/writer-detector/{scan_id}/check", body=payload, headers=headers)
+        res = conn.getresponse()
+        data = res.read().decode("utf-8")
+        
+        try:
+            result = json.loads(data)
+        except json.JSONDecodeError:
+            return f"Error: Invalid JSON response from API. Raw response: {data}"
+        
+        summary = result.get('summary', {})
+        ai_score = summary.get('ai', 0)
+        human_score = summary.get('human', 0)
+        probability = summary.get('probability', 0.0)
+        
+        total_words = result.get('scannedDocument', {}).get('totalWords', 0)
+        
+        if ai_score > human_score:
+            classification = "AI-generated content"
+        elif human_score > ai_score:
+            classification = "Human-generated content"
+        else:
+            classification = "Undetermined"
+
+        
+        return {
+            "classification": classification,
+            "ai_score": ai_score,
+            "human_score": human_score,
+            "total_words": total_words,
+            "model_version": result.get('modelVersion', 'Unknown'),
+        }
+    
+    except Exception as e:
+        return f"Error: {str(e)}"
+    finally:
+        conn.close()
+
 
 def convert_text_to_documents(text_chunks):
-    # Convert each chunk of text to a Document object
+    #   Convert each chunk of text to a Document object
     return [Document(page_content=chunk) for chunk in text_chunks]
 
 
@@ -101,25 +181,6 @@ def user_input(user_question):
     # print(response)
     st.write("Reply: ", response["output_text"])
 
-# def extract_criteria_and_values(rubric_text):
-#         criteria_values = []
-#         lines = rubric_text.split('\n')
-#         print(lines)
-#         i = 0
-
-#         current_criteria = None
-#         while i < len(lines):
-#             line = lines[i].strip()
-
-#             if line.startswith("**") and line.endswith("**"):
-#                 print(line)
-#                 while(line.startswith("*") and len(line) == 0):
-#                     if(len(line) > 0):
-#                         criteria_values.append(line)
-#                     i += 1
-#                 break
-
-#         return criteria_values
 
 def extract_criteria_and_values(output_text):
     criteria_values = []
@@ -130,10 +191,8 @@ def extract_criteria_and_values(output_text):
         line = line.strip()
         if line.startswith("**") and "Total Percentage Grade" not in line and "Letter Grade" not in line and "Feedback" not in line:
             current_criteria = line.split("**")[1].split(" ")[0]
-            print(line)
             scored = line.split("/")[0].split(" ")[-1]
             total = line.split("/")[1].split(" ")[0]
-            print(current_criteria, scored, total)
             criteria_values.append((current_criteria, scored, total))
 
     return criteria_values
@@ -181,6 +240,19 @@ def main():
         raw_text = get_pdf_text(pdf_docs)
 
         for key, value in raw_text.items():
+
+            content_check_result = check_content_origin(copyleaks_api_key, value)
+            st.write("Content Origin Check:")
+        
+            if isinstance(content_check_result, dict):
+                st.write(f"Classification: {content_check_result['classification']}")
+                st.write(f"AI Score: {content_check_result['ai_score']:.2f}")
+                st.write(f"Human Score: {content_check_result['human_score']:.2f}")
+                st.write(f"Total Words: {content_check_result['total_words']}")
+                st.write(f"Model Version: {content_check_result['model_version']}")
+            else:
+                st.write(content_check_result)
+
             text_chunks = get_text_chunks(value)
             get_vector_store(text_chunks)
             rubric_text = get_pdf_text([rubric_doc]) if rubric_doc else None
@@ -193,7 +265,6 @@ def main():
 
                 response = rubric_chain({"input_documents": convert_text_to_documents([rubric_str])}, return_only_outputs=True)
                 rubric_text = response["output_text"]
-            #print(rubric_text)
             chain = get_conversational_chain(rubric=rubric_text)
             
             # Convert text chunks to Document objects
