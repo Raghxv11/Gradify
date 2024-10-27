@@ -71,6 +71,7 @@ def grade_pdf():
         # Save the uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False) as temp_pdf:
             pdf_file.save(temp_pdf.name)
+            temp_pdf.close()
             
             # Process the PDF
             raw_text = get_pdf_text(temp_pdf.name)
