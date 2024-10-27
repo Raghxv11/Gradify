@@ -1,4 +1,5 @@
 import json
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -11,6 +12,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
+from langchain.docstore.document import Document
 from langchain.docstore.document import Document
 import tempfile
 
@@ -193,6 +195,9 @@ def get_conversational_chain(rubric=None):
     prompt = PromptTemplate(
         template=prompt_template, input_variables=["rubric", "context", "question"]
     )
+    prompt = PromptTemplate(
+        template=prompt_template, input_variables=["rubric", "context", "question"]
+    )
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
 
@@ -238,6 +243,8 @@ def grade_pdf():
         if 'pdf' not in request.files:
             return jsonify({'error': 'No PDF file uploaded'}), 400
         
+        pdf_file = request.files.getlist('pdf')
+        rubric_file = request.files.get('rubric')
         pdf_file = request.files.getlist('pdf')
         rubric_file = request.files.get('rubric')
         question = request.form.get('question')
