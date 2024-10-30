@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Gunicorn
+gunicorn_error.log
+
 # C extensions
 *.so
 
@@ -160,3 +163,7 @@ cython_debug/
 #.idea/
 
 model/llama-2-7b-chat.ggmlv3.q4_0.bin
+
+# FAISS index files
+faiss_index/
+faiss_index.pkl
