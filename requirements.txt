@@ -12,3 +12,4 @@ langchain_google_genai
 regex
 langchain-community
 Pillow==10.0.0
+gunicorn
