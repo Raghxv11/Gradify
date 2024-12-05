@@ -11,90 +11,27 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from langchain.docstore.document import Document
+import requests
 
-copyleaks_api_key = os.getenv("COPYLEAKS_API_KEY")
+
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
+WINSTON_API_KEY = os.getenv('WINSTON_API_KEY')
+WINSTON_API_URL = 'https://api.gowinston.ai/v2/plagiarism'
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-## Implementation of the Copyleaks API
-import http.client
-import json
 
-import uuid
-import time
-
-
-def create_scan_id(student_id):
-    # Generate a submission_id with a shortened UUID
-    uuid_part = str(uuid.uuid4()).replace('-', '')[:8]
-    submission_id = f"submission{uuid_part}"
-    
-    # Combine the components
-    scan_id = f"{student_id}-{submission_id}"
-    
-    # Ensure the scan_id meets the length requirement (3-36 characters)
-    if len(scan_id) > 36:
-        scan_id = scan_id[:36]
-    
-    return scan_id
-
-def check_content_origin(copyleaks_api_key, text):
-    conn = http.client.HTTPSConnection("api.copyleaks.com")
-
-    login_token = os.getenv("COPYLEAKS_LOGIN_TOKEN")
-    
+def check_plagiarism(text):
     headers = {
-        'Authorization': f"Bearer {login_token}",
-        'Content-Type': "application/json",
-        'Accept': "application/json"
+        'Authorization': f'Bearer {WINSTON_API_KEY}',
+        'Content-Type': 'application/json'
     }
-    
-    payload = json.dumps({
-        "text": text,
-        "language": "en",
-        "sandbox": False
-    })
-
-    try:
-        scan_id = create_scan_id("studentid123")
-        conn.request("POST", f"/v2/writer-detector/{scan_id}/check", body=payload, headers=headers)
-        res = conn.getresponse()
-        data = res.read().decode("utf-8")
-        
-        try:
-            result = json.loads(data)
-        except json.JSONDecodeError:
-            return f"Error: Invalid JSON response from API. Raw response: {data}"
-        
-        summary = result.get('summary', {})
-        ai_score = summary.get('ai', 0)
-        human_score = summary.get('human', 0)
-        probability = summary.get('probability', 0.0)
-        
-        total_words = result.get('scannedDocument', {}).get('totalWords', 0)
-        
-        if ai_score > human_score:
-            classification = "AI-generated content"
-        elif human_score > ai_score:
-            classification = "Human-generated content"
-        else:
-            classification = "Undetermined"
-
-        
-        return {
-            "classification": classification,
-            "ai_score": ai_score,
-            "human_score": human_score,
-            "total_words": total_words,
-            "model_version": result.get('modelVersion', 'Unknown'),
-        }
-    
-    except Exception as e:
-        return f"Error: {str(e)}"
-    finally:
-        conn.close()
+    data = {
+        'text': text
+    }
+    response = requests.post(WINSTON_API_URL, headers=headers, json=data)
+    return response.json()
 
 
 def convert_text_to_documents(text_chunks):
@@ -241,17 +178,9 @@ def main():
 
         for key, value in raw_text.items():
 
-            content_check_result = check_content_origin(copyleaks_api_key, value)
-            st.write("Content Origin Check:")
-        
-            if isinstance(content_check_result, dict):
-                st.write(f"Classification: {content_check_result['classification']}")
-                st.write(f"AI Score: {content_check_result['ai_score']:.2f}")
-                st.write(f"Human Score: {content_check_result['human_score']:.2f}")
-                st.write(f"Total Words: {content_check_result['total_words']}")
-                st.write(f"Model Version: {content_check_result['model_version']}")
-            else:
-                st.write(content_check_result)
+            plagiarism_result = check_plagiarism(value)
+            st.write("Plagiarism Check Result:")
+            st.json(plagiarism_result)
 
             text_chunks = get_text_chunks(value)
             get_vector_store(text_chunks)

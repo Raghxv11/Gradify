@@ -14,6 +14,7 @@ from langchain.prompts import PromptTemplate
 from langchain.docstore.document import Document
 import tempfile
 from PIL import Image
+import requests
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -22,6 +23,9 @@ CORS(app)
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=API_KEY)
+
+WINSTON_API_KEY = os.getenv('WINSTON_API_KEY')
+WINSTON_API_URL = 'https://api.gowinston.ai/v2/plagiarism'
 
 # Initialize variables
 visualization_data = []
@@ -124,6 +128,17 @@ def extract_criteria_and_values(output_text):
                 "scored": scored,
                 "total": total
             })
+
+def check_plagiarism(text):
+    headers = {
+        'Authorization': f'Bearer {API_KEY}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'text': text
+    }
+    response = requests.post(WINSTON_API_URL, headers=headers, json=data)
+    return response
 
 def create_visualizations(output_text):
     global percentage_grade, letter_grade
@@ -284,6 +299,25 @@ def grade_pdf():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/plagiarism', methods=['POST'])
+def plagiarism_checker():
+    text = request.json.get('text')
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+
+    response = check_plagiarism(text)
+    if response.status_code != 200:
+        return jsonify({'error': 'Failed to check plagiarism'}), response.status_code
+
+    data = response.json()
+    print(data)
+    result = {
+        'score': data['result']['score'],
+        'sources': [{'url': source['url'], 'source': source['source']} for source in data['sources']]
+    }
+    return jsonify(result)
 
 @app.route('/api/visualization', methods=['POST', 'OPTIONS'])
 def visualization_pdf():
